@@ -1,0 +1,30 @@
+/**
+ * Cache config service.
+ * @file Cache 配置器
+ */
+
+import Keyv from '@keyv/redis'
+import type {
+  CacheModuleOptions,
+  CacheOptionsFactory,
+} from '@nestjs/cache-manager'
+import { Injectable } from '@nestjs/common'
+import { REDIS } from '~/app.config'
+
+@Injectable()
+export class RedisConfigService implements CacheOptionsFactory {
+  // 缓存配置
+  public createCacheOptions(): CacheModuleOptions {
+    return {
+      ttl: REDIS.ttl ?? undefined,
+      max: REDIS.max,
+
+      stores: [
+        new Keyv({
+          url: `redis://${REDIS.host}:${REDIS.port}`,
+          password: REDIS.password as any,
+        }),
+      ],
+    }
+  }
+}
