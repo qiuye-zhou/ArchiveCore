@@ -3,12 +3,17 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   Param,
   Patch,
   Post,
   Query,
+  Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common'
+import { FileInterceptor } from '@nestjs/platform-express'
 
 import { ArticleService } from './article.service'
 import { Auth } from '~/common/decorator/auth.decorator'
@@ -26,31 +31,12 @@ export class ArticleController {
   @Get('/all')
   async getAll(@Query() query: QueryArticleDto) {
     return await this.articleService.getAll({
-      published: query.published !== undefined ? !!query.published : undefined,
       category: query.category,
       tag: query.tag,
       author: query.author,
       page: query.page,
       pageSize: query.pageSize,
     })
-  }
-
-  @Get('/published')
-  async getPublishedArticles(
-    @Query('page') page?: number,
-    @Query('pageSize') pageSize?: number,
-  ) {
-    return await this.articleService.getPublishedArticles(page, pageSize)
-  }
-
-  @Get('/drafts')
-  @Auth()
-  async getDrafts(
-    @Query('author') author?: string,
-    @Query('page') page?: number,
-    @Query('pageSize') pageSize?: number,
-  ) {
-    return await this.articleService.getDrafts(author, page, pageSize)
   }
 
   @Get('/category/:categoryId')
@@ -76,9 +62,52 @@ export class ArticleController {
     return await this.articleService.getBySlug(slug)
   }
 
+  /** 导出全部文档为 zip */
+  @Get('/export/all')
+  @Auth()
+  @Header('Content-Type', 'application/zip')
+  @Header('Content-Disposition', `attachment; filename="articles.zip"`)
+  async exportAll(@Res() res) {
+    const buffer = await this.articleService.exportAllAsZip()
+    res.end(buffer)
+    return
+  }
+
+  /** 导入 Markdown 文件 */
+  @Post('/import')
+  @Auth()
+  @UseInterceptors(FileInterceptor('file'))
+  async importMarkdown(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('categoryId') categoryId?: string,
+  ) {
+    if (!file) {
+      throw new Error('未接收到文件')
+    }
+    const content = file.buffer.toString('utf8')
+    return await this.articleService.importMarkdown(
+      file.originalname,
+      content,
+      categoryId,
+    )
+  }
+
   @Get('/:id')
   async getById(@Param() { id }: MongoIdDto) {
     return await this.articleService.getById(id)
+  }
+
+  /** 导出单个文档为 Markdown */
+  @Get('/:id/export')
+  async exportMarkdown(@Param() { id }: MongoIdDto, @Res() res) {
+    const { filename, content } = await this.articleService.exportMarkdown(id)
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8')
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${encodeURIComponent(filename)}"`,
+    )
+    res.send(content)
+    return
   }
 
   @Post('/add')

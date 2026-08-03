@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -11,6 +12,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
+import { basename, join } from 'node:path'
 
 import { BackupService } from './backup.service'
 import { Auth } from '~/common/decorator/auth.decorator'
@@ -57,7 +59,17 @@ export class BackupController {
   @Post('/restore')
   @Auth()
   async restore(@Body() body: { restoreFilePath: string }) {
-    return await this.backupService.restore(body.restoreFilePath)
+    // 前端传入的是备份文件名，需解析到 BACKUP_DIR 下并做路径穿越防护
+    const filename = basename(body.restoreFilePath)
+    if (
+      !filename ||
+      filename !== body.restoreFilePath ||
+      filename.includes('..')
+    ) {
+      throw new BadRequestException('无效的备份文件名')
+    }
+    const fullPath = join(BACKUP_DIR, filename)
+    return await this.backupService.restore(fullPath)
   }
 
   @Delete('/all')

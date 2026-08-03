@@ -21,10 +21,6 @@ class InitUrlDto {
 
   @IsString()
   @IsOptional()
-  adminUrl?: string
-
-  @IsString()
-  @IsOptional()
   serverUrl?: string
 
   @IsString()

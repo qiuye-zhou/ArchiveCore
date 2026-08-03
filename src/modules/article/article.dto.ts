@@ -8,15 +8,12 @@ import {
   IsString,
 } from 'class-validator'
 
-import { ArticleStatusEnum } from './article.model'
-
 export class CreateArticleDto {
   @IsString()
   @IsNotEmpty()
   title!: string
 
   @IsString()
-  @IsNotEmpty()
   content!: string
 
   @IsString()
@@ -31,10 +28,6 @@ export class CreateArticleDto {
   @IsOptional()
   tags?: string[]
 
-  @IsNumber()
-  @IsOptional()
-  status?: ArticleStatusEnum
-
   @IsString()
   @IsOptional()
   slug?: string
@@ -47,7 +40,6 @@ export class UpdateArticleDto {
   title?: string
 
   @IsString()
-  @IsNotEmpty()
   @IsOptional()
   content?: string
 
@@ -62,10 +54,6 @@ export class UpdateArticleDto {
   @IsArray()
   @IsOptional()
   tags?: string[]
-
-  @IsNumber()
-  @IsOptional()
-  status?: ArticleStatusEnum
 
   @IsString()
   @IsOptional()
@@ -88,18 +76,6 @@ export class QueryArticleDto {
     return val
   })
   isTag?: boolean | string
-
-  @IsOptional()
-  @Transform(({ value: val }) => {
-    if (val === '1' || val === 'true') {
-      return true
-    }
-    if (val === '0' || val === 'false') {
-      return false
-    }
-    return val
-  })
-  published?: boolean | string
 
   @IsOptional()
   @IsString()

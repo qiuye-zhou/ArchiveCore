@@ -17,7 +17,7 @@ export async function paginate<T>(
   ])
 
   return {
-    data,
+    list: data,
     total,
     page: currentPage,
     pageSize: currentPageSize,

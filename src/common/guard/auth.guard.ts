@@ -30,24 +30,29 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest()
     const query = request.query as any
     const headers = request.headers
-    const Authorization: string =
+    const rawAuthorization: string =
       headers.authorization || headers.Authorization || query.token
 
-    if (!Authorization) {
+    if (!rawAuthorization) {
       throw new UnauthorizedException('未登录')
     }
 
-    if (!isJWT(Authorization)) {
+    // 兼容标准 Bearer 前缀：Authorization: Bearer <token>
+    const token = rawAuthorization.startsWith('Bearer ')
+      ? rawAuthorization.slice(7).trim()
+      : rawAuthorization
+
+    if (!isJWT(token)) {
       throw new UnauthorizedException('令牌无效')
     }
 
-    const result = await this.authService.jwtServicePublic.verify(Authorization)
+    const result = await this.authService.jwtServicePublic.verify(token)
     if (!result) {
       throw new UnauthorizedException('身份过期')
     }
 
     const user = await this.getCachedMaster()
-    this.attachUserAndToken(request, user, Authorization)
+    this.attachUserAndToken(request, user, token)
     return true
   }
 

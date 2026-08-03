@@ -8,17 +8,29 @@ import {
   Post,
   Query,
 } from '@nestjs/common'
+import { Type } from 'class-transformer'
+import { IsArray, IsObject, IsString, ValidateNested } from 'class-validator'
 
 import { ConfigService } from './config.service'
 import { Auth } from '~/common/decorator/auth.decorator'
 import { ConfigKeyDto } from './config.dto'
 import { IConfig } from './configs.interface'
 
+/** 单个配置更新项 */
+class BatchUpdateItemDto {
+  @IsString()
+  key: keyof IConfig
+
+  @IsObject()
+  data: Record<string, unknown>
+}
+
+/** 批量更新入参 */
 class BatchUpdateDto {
-  updates: Array<{
-    key: keyof IConfig
-    data: Partial<IConfig[keyof IConfig]>
-  }>
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BatchUpdateItemDto)
+  updates: BatchUpdateItemDto[]
 }
 
 @Controller('config')
@@ -61,7 +73,12 @@ export class ConfigController {
   @Post('/batch')
   @Auth()
   async batchUpdate(@Body() body: BatchUpdateDto) {
-    return this.configService.batchUpdate(body.updates)
+    return this.configService.batchUpdate(
+      body.updates as unknown as Array<{
+        key: keyof IConfig
+        data: Partial<IConfig[keyof IConfig]>
+      }>,
+    )
   }
 
   @Delete('/reset/:key')

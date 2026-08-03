@@ -4,9 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import { ReturnModelType } from '@typegoose/typegoose'
+import * as archiver from 'archiver'
 
 import { InjectModel } from '~/transformers/model.transformer'
-import { ArticleModel, ArticleStatusEnum } from './article.model'
+import { ArticleModel } from './article.model'
 import { paginate } from '~/shared/utils/paginate'
 import { PaginatedResult } from '~/shared/dto/pagination.dto'
 
@@ -18,21 +19,15 @@ export class ArticleService {
   ) {}
 
   async getAll(query: {
-    published?: boolean
     category?: string
     tag?: string
     author?: string
     page?: number
     pageSize?: number
   }): Promise<PaginatedResult<ArticleModel>> {
-    const { published, category, tag, author, page = 1, pageSize = 10 } = query
+    const { category, tag, author, page = 1, pageSize = 10 } = query
 
     const filter: any = { isDeleted: false }
-    if (published !== undefined) {
-      filter.status = published
-        ? ArticleStatusEnum.Published
-        : ArticleStatusEnum.Draft
-    }
     if (category) {
       filter.category = category
     }
@@ -49,7 +44,7 @@ export class ArticleService {
   async getById(id: string) {
     const article = await this.articleModel.findById(id).lean()
     if (!article) {
-      throw new NotFoundException('文章不存在')
+      throw new NotFoundException('文档不存在')
     }
     return article
   }
@@ -59,7 +54,7 @@ export class ArticleService {
       .findOne({ slug, isDeleted: false })
       .lean()
     if (!article) {
-      throw new NotFoundException('文章不存在')
+      throw new NotFoundException('文档不存在')
     }
     return article
   }
@@ -70,12 +65,13 @@ export class ArticleService {
         slug: articleData.slug,
       })
       if (existingArticle) {
-        throw new BadRequestException('文章slug已存在')
+        throw new BadRequestException('文档slug已存在')
       }
     }
 
     const article = await this.articleModel.create({
       ...articleData,
+      content: articleData.content ?? '',
       views: 0,
     })
     return article
@@ -84,7 +80,7 @@ export class ArticleService {
   async update(id: string, articleData: Partial<ArticleModel>) {
     const article = await this.articleModel.findById(id)
     if (!article) {
-      throw new NotFoundException('文章不存在')
+      throw new NotFoundException('文档不存在')
     }
 
     if (articleData.slug && articleData.slug !== article.slug) {
@@ -93,7 +89,7 @@ export class ArticleService {
         _id: { $ne: id },
       })
       if (existingArticle) {
-        throw new BadRequestException('文章slug已存在')
+        throw new BadRequestException('文档slug已存在')
       }
     }
 
@@ -106,7 +102,7 @@ export class ArticleService {
   async delete(id: string) {
     const article = await this.articleModel.findById(id)
     if (!article) {
-      throw new NotFoundException('文章不存在')
+      throw new NotFoundException('文档不存在')
     }
 
     await this.articleModel.findByIdAndUpdate(id, { isDeleted: true })
@@ -116,7 +112,7 @@ export class ArticleService {
   async permanentlyDelete(id: string) {
     const result = await this.articleModel.deleteOne({ _id: id })
     if (result.deletedCount === 0) {
-      throw new NotFoundException('文章不存在')
+      throw new NotFoundException('文档不存在')
     }
     return
   }
@@ -129,21 +125,75 @@ export class ArticleService {
   async getByCategory(categoryId: string, page = 1, pageSize = 10) {
     return this.getAll({
       category: categoryId,
-      published: true,
       page,
       pageSize,
     })
   }
 
   async getByTag(tagId: string, page = 1, pageSize = 10) {
-    return this.getAll({ tag: tagId, published: true, page, pageSize })
+    return this.getAll({ tag: tagId, page, pageSize })
   }
 
-  async getPublishedArticles(page = 1, pageSize = 10) {
-    return this.getAll({ published: true, page, pageSize })
+  /**
+   * 导入 Markdown 文件为文档
+   * @param filename 文件名（含扩展名），去除 .md 后作为标题
+   * @param content 文件文本内容
+   * @param categoryId 可选所属文件夹 ID
+   */
+  async importMarkdown(filename: string, content: string, categoryId?: string) {
+    const title = filename.replace(/\.md$/i, '').trim() || '未命名文档'
+    return this.create({
+      title,
+      content,
+      category: categoryId,
+    })
   }
 
-  async getDrafts(author?: string, page = 1, pageSize = 10) {
-    return this.getAll({ published: false, author, page, pageSize })
+  /**
+   * 导出单个文档为 Markdown
+   * @returns { filename, content }
+   */
+  async exportMarkdown(id: string) {
+    const article = await this.articleModel.findById(id).lean()
+    if (!article) {
+      throw new NotFoundException('文档不存在')
+    }
+    const safeTitle = (article.title || '未命名').replace(/[\\/:*?"<>|]/g, '_')
+    return {
+      filename: `${safeTitle}.md`,
+      content: article.content || '',
+    }
+  }
+
+  /**
+   * 导出全部文档为 zip 包（每个文档一个 .md 文件）
+   * @returns Buffer
+   */
+  async exportAllAsZip(): Promise<Buffer> {
+    const articles = await this.articleModel
+      .find({ isDeleted: false })
+      .sort({ created: -1 })
+      .lean()
+
+    return new Promise<Buffer>((resolve, reject) => {
+      const archive = archiver('zip', { zlib: { level: 9 } })
+      const chunks: Buffer[] = []
+
+      archive.on('data', (chunk: Buffer) => chunks.push(chunk))
+      archive.on('end', () => resolve(Buffer.concat(chunks)))
+      archive.on('error', reject)
+
+      for (const article of articles) {
+        const safeTitle = (article.title || '未命名').replace(
+          /[\\/:*?"<>|]/g,
+          '_',
+        )
+        archive.append(article.content || '', {
+          name: `${safeTitle}.md`,
+        })
+      }
+
+      archive.finalize()
+    })
   }
 }

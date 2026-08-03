@@ -35,11 +35,6 @@ export class UrlDto {
 
   @IsAllowedUrl()
   @IsOptional()
-  @JSONSchemaHalfGirdPlainField('管理后台地址')
-  adminUrl: string
-
-  @IsAllowedUrl()
-  @IsOptional()
   @JSONSchemaHalfGirdPlainField('API 地址')
   serverUrl: string
 

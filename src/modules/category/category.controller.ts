@@ -24,6 +24,7 @@ import {
 export class CategoryController {
   constructor(private readonly categoryService: CategoryService) {}
 
+  /** 扁平列表（分页） */
   @Get('/all')
   async getCategories(
     @Query() query: QueryTagAndCategoryDto,
@@ -34,6 +35,18 @@ export class CategoryController {
       pagination.page,
       pagination.pageSize,
     )
+  }
+
+  /** 扁平列表（不分页，供前端组装） */
+  @Get('/flat')
+  async getFlat() {
+    return await this.categoryService.getAllFlat()
+  }
+
+  /** 树形结构 */
+  @Get('/tree')
+  async getTree() {
+    return await this.categoryService.getTree()
   }
 
   @Get('/:query')
@@ -47,8 +60,8 @@ export class CategoryController {
   @Post('/add')
   @Auth()
   async create(@Body() body: BodyCategoryModel) {
-    const { name, type, sign } = body
-    return this.categoryService.create(name, type, sign)
+    const { name, type, sign, parentId, order } = body
+    return this.categoryService.create(name, type, sign, parentId, order)
   }
 
   @Patch('/:id')

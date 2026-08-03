@@ -7,7 +7,6 @@ export const generateDefaultConfig: () => IConfig = () => ({
     description: '',
   },
   url: {
-    adminUrl: 'http://127.0.0.1:2666/admin',
     serverUrl: 'http://127.0.0.1:2666',
     webUrl: 'http://127.0.0.1:3030',
     wsUrl: 'http://127.0.0.1:2666',

@@ -1,5 +1,11 @@
 import { Transform } from 'class-transformer'
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator'
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator'
 
 import { CategoryTypeEnum } from './category.model'
 
@@ -30,7 +36,7 @@ export class BodyCategoryModel {
     if (val === '1' || val === 'true' || val === 1) {
       return CategoryTypeEnum.Tag
     } else {
-      return CategoryTypeEnum.Category
+      return CategoryTypeEnum.Folder
     }
   })
   @IsEnum(CategoryTypeEnum)
@@ -40,4 +46,13 @@ export class BodyCategoryModel {
   @IsString()
   @IsOptional()
   sign?: string
+
+  @IsString()
+  @IsOptional()
+  parentId?: string | null
+
+  @IsNumber()
+  @IsOptional()
+  @Transform(({ value }) => (value === undefined ? undefined : Number(value)))
+  order?: number
 }

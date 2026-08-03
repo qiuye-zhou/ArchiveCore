@@ -10,11 +10,6 @@ import { index, modelOptions, prop } from '@typegoose/typegoose'
 
 import { BaseModel } from '~/shared/model/base.model'
 
-export enum ArticleStatusEnum {
-  Draft = 0,
-  Published = 1,
-}
-
 @index({ title: 'text', content: 'text' })
 @modelOptions({ options: { customName: 'Article' } })
 export class ArticleModel extends BaseModel {
@@ -23,10 +18,10 @@ export class ArticleModel extends BaseModel {
   @IsNotEmpty()
   title!: string
 
-  @prop({ required: true })
+  @prop({ default: '' })
   @IsString()
-  @IsNotEmpty()
-  content!: string
+  @IsOptional()
+  content?: string
 
   @prop()
   @IsString()
@@ -42,11 +37,6 @@ export class ArticleModel extends BaseModel {
   @IsArray()
   @IsOptional()
   tags?: string[]
-
-  @prop({ default: ArticleStatusEnum.Draft })
-  @IsNumber()
-  @IsOptional()
-  status?: ArticleStatusEnum
 
   @prop({ default: 0 })
   @IsNumber()

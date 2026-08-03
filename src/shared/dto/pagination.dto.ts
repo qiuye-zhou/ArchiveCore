@@ -20,7 +20,7 @@ export class PaginationDto {
 }
 
 export interface PaginatedResult<T> {
-  data: T[]
+  list: T[]
   total: number
   page: number
   pageSize: number

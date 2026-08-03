@@ -3,7 +3,6 @@ import { Logger } from '@nestjs/common'
 
 import { PORT, CROSS_LIST } from './app.config'
 import { AppModule } from './app.module'
-import { SpiderGuard } from './common/guard/spider.guard'
 import { RedisIoAdapter } from './constants/socket.adapter'
 import { ExtendedValidationPipe } from './common/pipes/validation.pipe'
 
@@ -35,7 +34,6 @@ export async function bootstrap() {
     credentials: true,
   })
   app.useGlobalPipes(ExtendedValidationPipe.shared)
-  app.useGlobalGuards(new SpiderGuard())
   app.useWebSocketAdapter(new RedisIoAdapter(app))
 
   await app.listen(PORT, async () => {
