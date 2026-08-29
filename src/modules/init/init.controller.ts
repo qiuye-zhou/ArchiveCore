@@ -13,7 +13,6 @@ export class InitController {
   ) {}
 
   @Get('/')
-  @UseGuards(InitGuard)
   async isInit() {
     return {
       isInit: await this.initService.isInit(),
