@@ -1,4 +1,4 @@
-import {
+﻿import {
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -43,7 +43,7 @@ export class ArticleModel extends BaseModel {
   @IsOptional()
   views?: number
 
-  @prop({ unique: true, trim: true })
+  @prop({ unique: true, sparse: true, trim: true })
   @IsString()
   @IsOptional()
   slug?: string

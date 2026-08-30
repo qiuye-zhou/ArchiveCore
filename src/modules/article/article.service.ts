@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   Injectable,
   NotFoundException,
@@ -59,10 +59,29 @@ export class ArticleService {
     return article
   }
 
+  /**
+   * 生成一个高概率全局唯一的 slug（base36 时间戳 + base36 随机片段）
+   * 格式示例：mzqdpf3-a9x2kr（不依赖中文标题，避免 slugify 对中文得到空串）
+   */
+  private generateDefaultSlug(): string {
+    const ts = Date.now().toString(36)
+    const rand = Math.random().toString(36).slice(2, 8).padEnd(6, '0')
+    return `${ts}-${rand}`
+  }
+
   async create(articleData: Partial<ArticleModel>) {
-    if (articleData.slug) {
+    const data = { ...articleData }
+
+    // 若前端未传 slug（或传空串），自动生成一个唯一默认值，
+    // 既避免 MongoDB unique index 下的 slug:null 重复冲突，
+    // 也为未来基于 slug 的公开访问路径预留字段。
+    const hasSlug = typeof data.slug === 'string' && data.slug.trim().length > 0
+    if (!hasSlug) {
+      data.slug = this.generateDefaultSlug()
+    } else {
+      // 用户显式指定 slug 时，先检查唯一性
       const existingArticle = await this.articleModel.findOne({
-        slug: articleData.slug,
+        slug: data.slug,
       })
       if (existingArticle) {
         throw new BadRequestException('文档slug已存在')
@@ -70,8 +89,8 @@ export class ArticleService {
     }
 
     const article = await this.articleModel.create({
-      ...articleData,
-      content: articleData.content ?? '',
+      ...data,
+      content: data.content ?? '',
       views: 0,
     })
     return article
