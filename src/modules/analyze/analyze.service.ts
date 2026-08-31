@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+﻿import { Injectable, Logger } from '@nestjs/common'
 import * as os from 'os'
 import { ReturnModelType } from '@typegoose/typegoose'
 
@@ -21,7 +21,7 @@ export class AnalyzeService {
   async getOverview() {
     try {
       const [articlesCount, categoriesCount, userCount] = await Promise.all([
-        this.articleModel.countDocuments(),
+        this.articleModel.countDocuments({ isDeleted: false }),
         this.categoryModel.countDocuments(),
         this.userModel.countDocuments(),
       ])
@@ -65,12 +65,28 @@ export class AnalyzeService {
 
   async getCategoryStats() {
     try {
+      const articleColl =
+        this.articleModel.collection?.collectionName ||
+        this.articleModel.collection?.name ||
+        'articles'
+
       const stats = await this.categoryModel.aggregate([
         {
           $lookup: {
-            from: 'Article',
-            localField: '_id',
-            foreignField: 'categoryId',
+            from: articleColl,
+            let: { catIdStr: { $toString: '$_id' } },
+            pipeline: [
+              {
+                $match: {
+                  $expr: { $eq: ['$category', '$$catIdStr'] },
+                  $or: [
+                    { isDeleted: { $exists: false } },
+                    { isDeleted: false },
+                    { isDeleted: null },
+                  ],
+                },
+              },
+            ],
             as: 'articles',
           },
         },
@@ -109,7 +125,9 @@ export class AnalyzeService {
 
       const [articleStats] = await Promise.all([
         this.articleModel.aggregate([
-          { $match: { created: { $gte: cutoffDate } } },
+          {
+            $match: { created: { $gte: cutoffDate }, isDeleted: { $ne: true } },
+          },
           { $group: groupByDate },
           { $sort: { _id: 1 } },
         ]),
