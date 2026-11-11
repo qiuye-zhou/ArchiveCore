@@ -57,4 +57,21 @@ export class ArticleModel extends BaseModel {
   @IsString()
   @IsOptional()
   author?: string
+
+  /** 最后修改人用户 id */
+  @prop({ type: String, ref: 'User' })
+  @IsString()
+  @IsOptional()
+  lastModifiedBy?: string
+
+  /** 最后修改人显示名（冗余存储，用户被删后仍可展示） */
+  @prop()
+  @IsString()
+  @IsOptional()
+  lastModifiedByName?: string
+
+  /** 最后修改时间（updatedAt 语义，update 时手动维护） */
+  @prop()
+  @IsOptional()
+  modified?: Date
 }

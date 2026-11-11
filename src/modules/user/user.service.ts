@@ -46,9 +46,82 @@ export class UserService {
       throw new BadRequestException('已经有一个主人了哦')
     }
 
-    const res = await this.userModel.create({ ...model })
+    const res = await this.userModel.create({ ...model, role: 'admin' })
     const token = await this.authservice.jwtServicePublic.sign(res.id)
     return { token, username: res.username }
+  }
+
+  /** 用户管理：列出全部用户（不含密码） */
+  async listUsers() {
+    const users = await this.userModel.find().sort({ created: 1 }).lean()
+    return users.map((u) => ({
+      id: u._id.toString(),
+      username: u.username,
+      name: u.name,
+      mail: u.mail,
+      avatar: u.avatar,
+      role: u.role ?? 'admin',
+      createdTime: u.created ? new Date(u.created).toString() : undefined,
+      lastLoginTime: u.lastLoginTime,
+      lastLoginIp: u.lastLoginIp,
+    }))
+  }
+
+  /** 用户管理：创建协作者账号（仅管理员调用，入口由 controller 校验角色） */
+  async createUser(model: {
+    username: string
+    password: string
+    name?: string
+    mail?: string
+    role?: string
+  }) {
+    const exists = await this.userModel.findOne({ username: model.username })
+    if (exists) {
+      throw new BadRequestException('用户名已存在')
+    }
+    const res = await this.userModel.create({
+      username: model.username,
+      password: model.password,
+      name: model.name ?? model.username,
+      mail: model.mail,
+      role: model.role === 'admin' ? 'admin' : 'editor',
+    })
+    return {
+      id: res.id,
+      username: res.username,
+      name: res.name,
+      role: res.role,
+    }
+  }
+
+  /** 用户管理：删除用户；不允许删除最后一个管理员 */
+  async deleteUser(id: string) {
+    const target = await this.userModel.findById(id)
+    if (!target) {
+      throw new BadRequestException('用户不存在')
+    }
+    // 历史数据中的 master 无 role 字段，视为管理员
+    if ((target.role ?? 'admin') === 'admin') {
+      const adminCount = await this.userModel.countDocuments({
+        role: { $ne: 'editor' },
+      })
+      if (adminCount <= 1) {
+        throw new BadRequestException('至少需要保留一个管理员账号')
+      }
+    }
+    await this.userModel.deleteOne({ _id: id })
+    return
+  }
+
+  /** 用户管理：管理员重置指定用户密码，并使该用户全部会话失效 */
+  async resetPassword(id: string, newPassword: string) {
+    const target = await this.userModel.findById(id)
+    if (!target) {
+      throw new BadRequestException('用户不存在')
+    }
+    target.password = newPassword
+    await target.save()
+    return
   }
 
   async login(username: string, password: string) {
@@ -70,10 +143,16 @@ export class UserService {
    *
    * @async
    * @param {string} ip - string
+   * @param {string} userId - 登录用户 id（多用户下更新本人，缺省回退到第一个用户）
    * @return {Promise<Record<string, Date|string>>} 返回上次登入IP
    */
-  async recordFootstep(ip: string): Promise<Record<string, Date | string>> {
-    const master = await this.userModel.findOne()
+  async recordFootstep(
+    ip: string,
+    userId?: string,
+  ): Promise<Record<string, Date | string>> {
+    const master = userId
+      ? await this.userModel.findById(userId)
+      : await this.userModel.findOne()
     if (!master) {
       throw new HttpException(
         HttpException.createBody({

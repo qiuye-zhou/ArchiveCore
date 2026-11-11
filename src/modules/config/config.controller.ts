@@ -1,4 +1,4 @@
-import {
+﻿import {
   Body,
   Controller,
   Delete,
@@ -12,7 +12,7 @@ import { Type } from 'class-transformer'
 import { IsArray, IsObject, IsString, ValidateNested } from 'class-validator'
 
 import { ConfigService } from './config.service'
-import { Auth } from '~/common/decorator/auth.decorator'
+import { Admin } from '~/common/decorator/auth.decorator'
 import { ConfigKeyDto } from './config.dto'
 import { IConfig } from './configs.interface'
 
@@ -38,31 +38,31 @@ export class ConfigController {
   constructor(private readonly configService: ConfigService) {}
 
   @Get('/getconfig')
-  @Auth()
+  @Admin()
   async getconfig() {
     return this.configService.getConfig()
   }
 
   @Get('/keys')
-  @Auth()
+  @Admin()
   async getAllConfigKeys() {
     return this.configService.getAllConfigKeys()
   }
 
   @Get('/getconfig/:key')
-  @Auth()
+  @Admin()
   async getConfigByKey(@Param('key') key: string) {
     return this.configService.getConfigByKey(key as keyof IConfig)
   }
 
   @Get('/validate')
-  @Auth()
+  @Admin()
   async validateConfig(@Query('key') key?: string) {
     return this.configService.validateConfig(key as keyof IConfig | undefined)
   }
 
   @Patch('/:key')
-  @Auth()
+  @Admin()
   async updataconfig(
     @Param() params: ConfigKeyDto,
     @Body() body: Record<string, any>,
@@ -71,7 +71,7 @@ export class ConfigController {
   }
 
   @Post('/batch')
-  @Auth()
+  @Admin()
   async batchUpdate(@Body() body: BatchUpdateDto) {
     return this.configService.batchUpdate(
       body.updates as unknown as Array<{
@@ -82,21 +82,21 @@ export class ConfigController {
   }
 
   @Delete('/reset/:key')
-  @Auth()
+  @Admin()
   async resetConfigByKey(@Param('key') key: string) {
     await this.configService.resetConfig(key as keyof IConfig)
     return { message: '配置项已重置' }
   }
 
   @Delete('/reset')
-  @Auth()
+  @Admin()
   async resetAllConfig() {
     await this.configService.resetConfig()
     return { message: '所有配置已重置' }
   }
 
   @Post('/reload')
-  @Auth()
+  @Admin()
   async reloadConfig() {
     return this.configService.reloadConfig()
   }

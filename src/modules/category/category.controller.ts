@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common'
 
 import { CategoryService } from './category.service'
-import { Auth } from '~/common/decorator/auth.decorator'
+import { Auth, Admin } from '~/common/decorator/auth.decorator'
 import { MongoIdDto } from '~/shared/dto/id.dto'
 import { PaginationDto } from '~/shared/dto/pagination.dto'
 import {
@@ -72,7 +72,7 @@ export class CategoryController {
   }
 
   @Delete('/:id')
-  @Auth()
+  @Admin()
   async deleteCategory(@Param() params: MongoIdDto) {
     const { id } = params
     return await this.categoryService.deleteById(id)

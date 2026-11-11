@@ -15,12 +15,12 @@ import { FileInterceptor } from '@nestjs/platform-express'
 import { basename, join } from 'node:path'
 
 import { BackupService } from './backup.service'
-import { Auth } from '~/common/decorator/auth.decorator'
+import { Admin } from '~/common/decorator/auth.decorator'
 import { getMediumDateTime } from '~/utils/time.util'
 import { BACKUP_DIR } from '~/constants/path.constants'
 
 @Controller('backup')
-@Auth()
+@Admin()
 export class BackupController {
   constructor(private readonly backupService: BackupService) {}
 
@@ -57,7 +57,6 @@ export class BackupController {
   }
 
   @Post('/restore')
-  @Auth()
   async restore(@Body() body: { restoreFilePath: string }) {
     // 前端传入的是备份文件名，需解析到 BACKUP_DIR 下并做路径穿越防护
     const filename = basename(body.restoreFilePath)

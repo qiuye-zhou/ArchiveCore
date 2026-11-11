@@ -15,14 +15,29 @@
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 
-import { ArticleService } from './article.service'
-import { Auth } from '~/common/decorator/auth.decorator'
+import { ArticleService, EditorInfo } from './article.service'
+import { Auth, Admin } from '~/common/decorator/auth.decorator'
+import { GetRequestUser } from '~/common/decorator/user.decorator'
 import { MongoIdDto } from '~/shared/dto/id.dto'
+import { UserDocument } from '~/modules/user/user.model'
 import {
   CreateArticleDto,
   QueryArticleDto,
   UpdateArticleDto,
 } from './article.dto'
+
+/** 从登录用户提取修改人信息 */
+function toEditor(user: {
+  id?: string
+  _id?: any
+  name?: string
+  username?: string
+}): EditorInfo {
+  return {
+    id: user.id ?? user._id?.toString() ?? '',
+    name: user.name || user.username || '未知用户',
+  }
+}
 
 @Controller('article')
 export class ArticleController {
@@ -112,28 +127,67 @@ export class ArticleController {
 
   @Post('/add')
   @Auth()
-  async create(@Body() createArticleDto: CreateArticleDto) {
-    return await this.articleService.create(createArticleDto)
+  async create(
+    @GetRequestUser() user: UserDocument,
+    @Body() createArticleDto: CreateArticleDto,
+  ) {
+    const editor = toEditor(user)
+    return await this.articleService.create({
+      ...createArticleDto,
+      author: editor.id,
+      lastModifiedBy: editor.id,
+      lastModifiedByName: editor.name,
+      modified: new Date(),
+    })
   }
 
   @Patch('/:id')
   @Auth()
   async update(
+    @GetRequestUser() user: UserDocument,
     @Param() { id }: MongoIdDto,
     @Body() updateArticleDto: UpdateArticleDto,
   ) {
-    return await this.articleService.update(id, updateArticleDto)
+    return await this.articleService.update(id, updateArticleDto, toEditor(user))
+  }
+
+  /** 历史版本列表 */
+  @Get('/:id/revisions')
+  @Auth()
+  async listRevisions(@Param() { id }: MongoIdDto) {
+    return await this.articleService.listRevisions(id)
+  }
+
+  /** 历史版本详情（含正文，用于预览） */
+  @Get('/:id/revisions/:revisionId')
+  @Auth()
+  async getRevision(
+    @Param() { id }: MongoIdDto,
+    @Param('revisionId') revisionId: string,
+  ) {
+    return await this.articleService.getRevision(id, revisionId)
+  }
+
+  /** 回溯到指定历史版本 */
+  @Post('/:id/revisions/:revisionId/restore')
+  @Auth()
+  async restoreRevision(
+    @GetRequestUser() user: UserDocument,
+    @Param() { id }: MongoIdDto,
+    @Param('revisionId') revisionId: string,
+  ) {
+    return await this.articleService.restoreRevision(id, revisionId, toEditor(user))
   }
 
   @Delete('/:id')
-  @Auth()
+  @Admin()
   async delete(@Param() { id }: MongoIdDto) {
     await this.articleService.delete(id)
     return
   }
 
   @Delete('/:id/permanent')
-  @Auth()
+  @Admin()
   @HttpCode(204)
   async permanentlyDelete(@Param() { id }: MongoIdDto) {
     await this.articleService.permanentlyDelete(id)

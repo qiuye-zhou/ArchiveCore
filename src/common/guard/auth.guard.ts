@@ -13,12 +13,13 @@ import { UserService } from '~/modules/user/user.service'
 
 /**
  * JWT auth guard
+ * 多用户：按 token 中的用户 id 加载对应用户并挂载到 request.user，
+ * 带按 id 的短缓存（用户信息更新时通过 clearCache 失效）。
  */
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  private cachedMaster: UserModel | null = null
-  private cacheExpiry = 0
+  private cachedUsers = new Map<string, { user: UserModel; expiry: number }>()
   private readonly CACHE_TTL = 60_000 // 1 minute
 
   constructor(
@@ -51,26 +52,30 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('身份过期')
     }
 
-    const user = await this.getCachedMaster()
+    const user = await this.getCachedUser(result.id)
+    if (!user) {
+      throw new UnauthorizedException('用户不存在或已被删除')
+    }
     this.attachUserAndToken(request, user, token)
     return true
   }
 
-  private async getCachedMaster(): Promise<UserModel> {
+  private async getCachedUser(id: string): Promise<UserModel | null> {
     const now = Date.now()
-    if (this.cachedMaster && now < this.cacheExpiry) {
-      return this.cachedMaster
+    const cached = this.cachedUsers.get(id)
+    if (cached && now < cached.expiry) {
+      return cached.user
     }
-    const user = await this.userService.getMaster()
-    this.cachedMaster = user
-    this.cacheExpiry = now + this.CACHE_TTL
-    return user
+    const user = await this.userService.findById(id)
+    if (!user) return null
+    const lean = (user as any).toObject ? (user as any).toObject() : user
+    this.cachedUsers.set(id, { user: lean, expiry: now + this.CACHE_TTL })
+    return lean
   }
 
   /** 调用此方法可清除缓存，例如用户信息更新后 */
   public clearCache() {
-    this.cachedMaster = null
-    this.cacheExpiry = 0
+    this.cachedUsers.clear()
   }
 
   attachUserAndToken(

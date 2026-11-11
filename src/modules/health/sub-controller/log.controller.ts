@@ -1,6 +1,6 @@
 import { Controller, Get, Delete, Param } from '@nestjs/common'
 
-import { Auth } from '~/common/decorator/auth.decorator'
+import { Auth, Admin } from '~/common/decorator/auth.decorator'
 import { HealthService } from '../health.service'
 
 @Controller('health/log')
@@ -19,11 +19,13 @@ export class HealthLogController {
   }
 
   @Delete('/:filename')
+  @Admin()
   async deleteLog(@Param('filename') filename: string) {
     return await this.healthService.deleteLog(filename)
   }
 
   @Delete('/')
+  @Admin()
   async deleteAllLogs() {
     return await this.healthService.deleteAllLogs()
   }

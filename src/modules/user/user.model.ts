@@ -44,4 +44,8 @@ export class UserModel extends BaseModel {
 
   @prop()
   lastLoginIp?: string
+
+  /** 角色：admin（初始化创建的主人）可管理用户；editor 为普通协作者 */
+  @prop({ default: 'editor' })
+  role?: string
 }

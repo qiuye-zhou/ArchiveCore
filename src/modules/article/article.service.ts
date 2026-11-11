@@ -8,14 +8,26 @@ import * as archiver from 'archiver'
 
 import { InjectModel } from '~/transformers/model.transformer'
 import { ArticleModel } from './article.model'
+import { ArticleRevisionModel } from './article-revision.model'
 import { paginate } from '~/shared/utils/paginate'
 import { PaginatedResult } from '~/shared/dto/pagination.dto'
+
+/** 触发历史快照的字段：仅标题/正文变化时才记录版本 */
+const TRACKED_FIELDS = ['title', 'content'] as const
+
+/** 修改人信息（由 controller 从登录态注入） */
+export interface EditorInfo {
+  id: string
+  name: string
+}
 
 @Injectable()
 export class ArticleService {
   constructor(
     @InjectModel(ArticleModel)
     private readonly articleModel: ReturnModelType<typeof ArticleModel>,
+    @InjectModel(ArticleRevisionModel)
+    private readonly revisionModel: ReturnModelType<typeof ArticleRevisionModel>,
   ) {}
 
   async getAll(query: {
@@ -96,7 +108,11 @@ export class ArticleService {
     return article
   }
 
-  async update(id: string, articleData: Partial<ArticleModel>) {
+  async update(
+    id: string,
+    articleData: Partial<ArticleModel>,
+    editor?: EditorInfo,
+  ) {
     const article = await this.articleModel.findById(id)
     if (!article) {
       throw new NotFoundException('文档不存在')
@@ -112,10 +128,88 @@ export class ArticleService {
       }
     }
 
+    // 仅当标题/正文实际变化时才记录修改人、修改时间并生成历史快照
+    const contentChanged = TRACKED_FIELDS.some(
+      (f) => articleData[f] !== undefined && articleData[f] !== article[f],
+    )
+
+    const updatePayload: Record<string, any> = { ...articleData }
+    if (contentChanged) {
+      updatePayload.modified = new Date()
+      if (editor) {
+        updatePayload.lastModifiedBy = editor.id
+        updatePayload.lastModifiedByName = editor.name
+      }
+    }
+
     const updatedArticle = await this.articleModel
-      .findByIdAndUpdate(id, articleData, { new: true })
+      .findByIdAndUpdate(id, updatePayload, { new: true })
       .lean()
+
+    if (contentChanged && updatedArticle) {
+      await this.revisionModel.create({
+        articleId: id,
+        title: updatedArticle.title ?? '',
+        content: updatedArticle.content ?? '',
+        editorId: editor?.id,
+        editorName: editor?.name ?? '未知用户',
+      })
+    }
+
     return updatedArticle
+  }
+
+  /** 文档历史版本列表（新的在前，不含正文，避免列表过大） */
+  async listRevisions(articleId: string) {
+    const article = await this.articleModel.findById(articleId).lean()
+    if (!article) {
+      throw new NotFoundException('文档不存在')
+    }
+    const revisions = await this.revisionModel
+      .find({ articleId })
+      .sort({ created: -1 })
+      .select('-content')
+      .lean()
+    return revisions.map((r) => ({
+      id: r._id.toString(),
+      title: r.title,
+      editorId: r.editorId,
+      editorName: r.editorName,
+      created: r.created,
+    }))
+  }
+
+  /** 单个历史版本详情（含正文，用于预览/回溯） */
+  async getRevision(articleId: string, revisionId: string) {
+    const revision = await this.revisionModel
+      .findOne({ _id: revisionId, articleId })
+      .lean()
+    if (!revision) {
+      throw new NotFoundException('历史版本不存在')
+    }
+    return {
+      id: revision._id.toString(),
+      articleId: revision.articleId,
+      title: revision.title,
+      content: revision.content,
+      editorId: revision.editorId,
+      editorName: revision.editorName,
+      created: revision.created,
+    }
+  }
+
+  /** 回溯到指定历史版本：用该版本的标题/正文覆盖当前文档（本身也会产生一条新快照） */
+  async restoreRevision(
+    articleId: string,
+    revisionId: string,
+    editor?: EditorInfo,
+  ) {
+    const revision = await this.getRevision(articleId, revisionId)
+    return this.update(
+      articleId,
+      { title: revision.title, content: revision.content },
+      editor,
+    )
   }
 
   async delete(id: string) {
