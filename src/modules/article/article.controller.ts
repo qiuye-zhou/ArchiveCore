@@ -107,6 +107,16 @@ export class ArticleController {
     )
   }
 
+  /** 回收站列表（需在 /:id 之前声明，否则会被动态路由吞掉） */
+  @Get('/recycle')
+  @Admin()
+  async getRecycle(
+    @Query('page') page?: number,
+    @Query('pageSize') pageSize?: number,
+  ) {
+    return await this.articleService.getDeleted({ page, pageSize })
+  }
+
   @Get('/:id')
   async getById(@Param() { id }: MongoIdDto) {
     return await this.articleService.getById(id)
@@ -181,8 +191,19 @@ export class ArticleController {
 
   @Delete('/:id')
   @Admin()
-  async delete(@Param() { id }: MongoIdDto) {
-    await this.articleService.delete(id)
+  async delete(
+    @GetRequestUser() user: UserDocument,
+    @Param() { id }: MongoIdDto,
+  ) {
+    await this.articleService.delete(id, toEditor(user))
+    return
+  }
+
+  /** 从回收站恢复 */
+  @Patch('/:id/restore')
+  @Admin()
+  async restore(@Param() { id }: MongoIdDto) {
+    await this.articleService.restore(id)
     return
   }
 

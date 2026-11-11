@@ -212,13 +212,45 @@ export class ArticleService {
     )
   }
 
-  async delete(id: string) {
+  async delete(id: string, editor?: EditorInfo) {
     const article = await this.articleModel.findById(id)
     if (!article) {
       throw new NotFoundException('文档不存在')
     }
 
-    await this.articleModel.findByIdAndUpdate(id, { isDeleted: true })
+    await this.articleModel.findByIdAndUpdate(id, {
+      isDeleted: true,
+      deletedAt: new Date(),
+      deletedBy: editor?.id,
+      deletedByName: editor?.name,
+    })
+    return
+  }
+
+  /** 回收站列表：只含软删除的文档，按删除时间倒序 */
+  async getDeleted(query: {
+    page?: number
+    pageSize?: number
+  }): Promise<PaginatedResult<ArticleModel>> {
+    const { page = 1, pageSize = 10 } = query
+    return paginate<ArticleModel>(
+      this.articleModel,
+      { isDeleted: true },
+      page,
+      pageSize,
+      { deletedAt: -1, created: -1 },
+    )
+  }
+
+  /** 从回收站恢复文档 */
+  async restore(id: string) {
+    const result = await this.articleModel.findByIdAndUpdate(id, {
+      isDeleted: false,
+      $unset: { deletedAt: 1, deletedBy: 1, deletedByName: 1 },
+    })
+    if (!result) {
+      throw new NotFoundException('文档不存在')
+    }
     return
   }
 
@@ -227,6 +259,8 @@ export class ArticleService {
     if (result.deletedCount === 0) {
       throw new NotFoundException('文档不存在')
     }
+    // 历史版本不会随文档级联删除，这里一并清理，避免残留孤儿数据
+    await this.revisionModel.deleteMany({ articleId: id })
     return
   }
 

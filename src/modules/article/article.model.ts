@@ -74,4 +74,21 @@ export class ArticleModel extends BaseModel {
   @prop()
   @IsOptional()
   modified?: Date
+
+  /** 移入回收站的时间 */
+  @prop()
+  @IsOptional()
+  deletedAt?: Date
+
+  /** 删除操作人用户 id */
+  @prop({ type: String, ref: 'User' })
+  @IsString()
+  @IsOptional()
+  deletedBy?: string
+
+  /** 删除操作人显示名（冗余存储，用户被删后仍可展示） */
+  @prop()
+  @IsString()
+  @IsOptional()
+  deletedByName?: string
 }
