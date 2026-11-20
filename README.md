@@ -1,11 +1,8 @@
 # ArchiveCore
 
-在线文档系统 **ArchiveCore** 后端服务，基于 NestJS 11 构建，为前端 [ArchiveWeb](../ArchiveWeb) 提供接口。
+在线文档系统 **ArchiveCore** 后端服务，基于 NestJS 11 构建，为前端 [ArchiveWeb](https://github.com/qiuye-zhou/ArchiveWeb) 提供接口
 
-- 前端仓库（同目录）：[../ArchiveWeb](../ArchiveWeb) · [GitHub](https://github.com/qiuye-zhou/ArchiveWeb)
-- 本项目仓库：[GitHub](https://github.com/qiuye-zhou/ArchiveCore)
-
-> 完整系统 = 本后端（:3666）+ [ArchiveWeb](../ArchiveWeb) 前端（:3030）。前端开发时通过 Vite 代理把 `/api` 转发到本服务。
+> 完整系统 = 本后端（:3666）+ [ArchiveWeb](https://github.com/qiuye-zhou/ArchiveWeb) 前端（:3030）。前端开发时通过 Vite 代理把 `/api` 转发到本服务。
 
 ## 技术栈
 
@@ -67,7 +64,7 @@ pnpm install
 pnpm dev          # 开发模式，监听 http://127.0.0.1:3666
 ```
 
-启动后打开前端 [ArchiveWeb](../ArchiveWeb)（默认 http://localhost:3030），未初始化时会自动跳转初始化页面，创建管理员账号后即可登录使用。
+启动后打开前端 ArchiveWeb（默认 http://localhost:3030），未初始化时会自动跳转初始化页面，创建管理员账号后即可登录使用。
 
 ### 常用脚本
 
@@ -130,8 +127,6 @@ pnpm dev          # 开发模式，监听 http://127.0.0.1:3666
               └─> Redis（缓存、Socket.IO 适配器）
 ```
 
-1. 先启动本服务，再启动 [ArchiveWeb](../ArchiveWeb)
+1. 先启动本服务，再启动 ArchiveWeb
 2. 前端请求统一走 `axios` 实例，自动注入 token、解包响应
 3. 后端不可达（断网 / 502 / 503 / 504）时，前端会跳转独立的网络错误页
-
-前端使用说明见 [ArchiveWeb README](../ArchiveWeb/README.md)。
